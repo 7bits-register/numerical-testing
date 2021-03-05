@@ -16,7 +16,7 @@ properties([
             name: 'EPS',
             trim: true),
         choice(
-            choices: ['gpu-plasticity-elastic'], 
+            choices: ['gpu-plasticity-elastic', 'convergence_elastic'], 
             description: 'scenario to test (see sub-folders)', 
             name: 'TEST_SCENARIO')
     ])
@@ -43,6 +43,43 @@ pipeline {
             }
         }
 
+        stage('CloneSeisSol') {
+            steps {
+                script {
+                    sh """
+                    git clone --branch ${params.SEISSOL_BRANCH} --recurse-submodules ${params.SEISSOL_REPO} seissol
+                    """
+                }
+            }
+        }
+
+        stage('ConvergenceTestGPU') {
+            when {
+                expression {
+                    "${params.TEST_SCENARIO}" == 'convergence_elastic'
+                }
+            }
+            steps {
+                script {
+                    dir('./seissol') {
+                        sh """
+                        for precision in double single; do
+                            mkdir -p build_${precision} && cd build_${precision}
+                            cp ../../convergence_elastic/* .
+                            
+                            cmake -DCMAKE_BUILD_TYPE=Release -DDEVICE_ARCH=${GPU_VENDOR} -DDEVICE_SUB_ARCH=${GPU_MODEL} \
+                            -DHOST_ARCH=${HOST_ARCH} -DPRECISION=${precision} ..
+                            
+                            make -j4
+                            mpirun -n 1 ./SeisSol_Release_?nvidia_?_elastic ./parameters.par
+                            cd ..
+                        done
+                        """
+                    }
+                }
+            }
+        }
+
 
         stage('PlasticityElasticGPU') {
             when {
@@ -53,7 +90,6 @@ pipeline {
             steps {
                 script {
                     sh """
-                    git clone --branch ${params.SEISSOL_BRANCH} --recurse-submodules ${params.SEISSOL_REPO} seissol
                     mkdir -p  ./seissol/build
                     cp -r ./plasticity-elastic/* ./seissol/build
                     """
