@@ -68,7 +68,7 @@ pipeline {
                             cp ../../convergence_elastic/* .
                             
                             cmake -DCMAKE_BUILD_TYPE=Release -DDEVICE_ARCH=${GPU_VENDOR} -DDEVICE_SUB_ARCH=${GPU_MODEL} \
-                            -DHOST_ARCH=${HOST_ARCH} -DPRECISION=${precision} ..
+                            -DHOST_ARCH=${RUNNER_HOST_ARCH} -DPRECISION=${precision} ..
                             
                             make -j4
                             mpirun -n 1 ./SeisSol_Release_?nvidia_?_elastic ./parameters.par
